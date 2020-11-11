@@ -3,7 +3,7 @@
 namespace MailBox;
 
 
-class Mail
+class MailBox
 {
     private $server = '';
     private $username = '';
