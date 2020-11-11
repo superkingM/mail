@@ -1,0 +1,19 @@
+{
+    "name": "superkingm/mail",
+    "description": "mail list",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "superkingm",
+            "email": "396656156@qq.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {},
+    "autoload": {
+        "psr-4": {
+            "Mail\\": "src/Mail/"
+        }
+    }
+}
