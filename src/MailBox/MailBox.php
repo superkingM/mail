@@ -11,6 +11,17 @@ class MailBox
     private $marubox = '';
     private $email = '';
 
+    /**
+     * MailBox constructor.
+     * @param $username
+     * @param $password
+     * @param $email_address
+     * @param $mail_server
+     * @param $server_type
+     * @param $port
+     * @param bool $ssl
+     * 初始化
+     */
     public function __construct($username, $password, $email_address, $mail_server, $server_type, $port, $ssl = false)
     {
         if ($server_type == 'imap') {
@@ -26,6 +37,9 @@ class MailBox
         $this->email = $email_address;
     }
 
+    /**
+     * 连接
+     */
     public function connect()
     {
         $this->marubox = @imap_open($this->server, $this->username, $this->password, 0);
@@ -74,17 +88,76 @@ class MailBox
         return $mail_details;
     }
 
+    /**
+     * 获取邮件内容
+     * @param $mid
+     * @return bool|string
+     */
     public function get_body($mid)
     {
-//        return   imap_fetchstructure($this->marubox,$mid);
         $body = imap_fetchbody($this->marubox, $mid, 1);
-        $body = base64_decode($body);
-        if (mb_detect_encoding($body,'GBK')){
-            $body =  mb_convert_encoding($body,'UTF-8','GBK');
+        $encoding = imap_fetchstructure($this->marubox, $mid);
+        if (!isset($encoding->parts)) {
+            if ($encoding->encoding == 3) {
+                return base64_decode($body);
+            }
+        } else {
+            $code = 3;
+            $param = strtolower($encoding->parameters[0]->value);
+
+
+            foreach ($encoding->parts as $part) {
+                if ($part->encoding == 0) {
+                    foreach ($part->parts as $pa) {
+                        if ($pa->encoding == 4) {
+                            $code = 4;
+                        }
+                    }
+                }
+                if ($part->encoding == 4) {
+                    $code = 4;
+                }
+            }
+
+            if ($code == 3) {
+
+                if (!strpos($param, 'part') && !strpos($param, 'nextpart')) {
+                    $body = imap_fetchbody($this->marubox, $mid, 2);
+                    return base64_decode($body);
+                }
+                if (strpos($param, 'nextpart')) {
+                    $body = imap_fetchbody($this->marubox, $mid, 2);
+                    $body = base64_decode($body);
+                    if (mb_detect_encoding($body, 'GBK')) {
+                        $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
+                    }
+                    return $body;
+                }
+                $body = base64_decode($body);
+                if (mb_detect_encoding($body, 'GBK')) {
+                    $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
+                }
+                return $body;
+            }
+            if ($code == 4) {
+                if (!strpos($param, 'part') && !strpos($param, 'nextpart')) {
+                    $body = imap_fetchbody($this->marubox, $mid, 2);
+                    return imap_qprint($body);
+                }
+                return imap_qprint($body);
+            }
+
         }
+
+
         return $body;
+
     }
 
+    /**GBK解码
+     * @param $string
+     * @return bool|string
+     */
     private function _decode_GBK($string)
     {
         $newString = '';
