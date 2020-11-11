@@ -154,6 +154,57 @@ class MailBox
 
     }
 
+    /**
+     * 标记邮件成已读
+     */
+    public function mark_mail_read($mid)
+    {
+        return imap_setflag_full($this->marubox, $mid, '\\Seen');
+    }
+
+    /**
+     * 标记邮件成未读
+     */
+    public function mark_mail_un_read($mid)
+    {
+        return imap_clearflag_full($this->marubox, $mid, '\\Seen');
+    }
+
+    /**
+     * 判断是否阅读了邮件 $headerinfo get_imap_header 的返回值
+     */
+    public function is_unread($headerinfo)
+    {
+        if (($headerinfo->Unseen == 'U') || ($headerinfo->Recent == 'N')) return true;
+        return false;
+    }
+
+    /**
+     * 删除邮件
+     */
+    public function delete_mail($mid)
+    {
+        if (!$this->marubox) return false;
+        return imap_delete($this->marubox, $mid, 0);
+    }
+
+    /**
+     * 关闭 IMAP 流
+     */
+    public function close_mailbox()
+    {
+        if (!$this->marubox) return false;
+        imap_close($this->marubox, CL_EXPUNGE);
+    }
+
+    /**
+     * 对象销毁前关闭邮箱
+     */
+    public function __destruct()
+    {
+        $this->close_mailbox();
+    }
+
     /**GBK解码
      * @param $string
      * @return bool|string
