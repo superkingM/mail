@@ -125,7 +125,7 @@ class MailBox
                     $body = imap_fetchbody($this->marubox, $mid, 2);
                     return base64_decode($body);
                 }
-                if (strpos($param, 'nextpart')) {
+                if (strpos($param, 'nextpart')||strpos($param,'part')) {
                     $body = imap_fetchbody($this->marubox, $mid, 2);
                     $body = base64_decode($body);
                     if (mb_detect_encoding($body, 'GBK')) {
