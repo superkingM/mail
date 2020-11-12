@@ -189,6 +189,15 @@ class MailBox
     }
 
     /**
+     * 获取邮件时间
+     */
+
+    public function get_date($mid)
+    {
+        return strtotime(get_imap_header($mid)->MailDate);
+    }
+
+    /**
      * 关闭 IMAP 流
      */
     public function close_mailbox()
