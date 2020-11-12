@@ -194,7 +194,7 @@ class MailBox
 
     public function get_date($mid)
     {
-        return strtotime(get_imap_header($mid)->MailDate);
+        return strtotime($this->get_imap_header($mid)->MailDate);
     }
 
     /**
