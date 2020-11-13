@@ -17,4 +17,9 @@
         $head = $mail->get_imap_header($mid);//获取原始的邮件头部信息
         $mail->get_header_info($head);//获取头部信息例如 发件人，主题，收件人等
         $mail->get_body($mid);//获取邮件内容
+        $mail->mark_mail_read($mid);//将邮件标记为已读
+        $mail->mark_mail_un_read($mid);//将邮件标记为未读
+        $mail->is_unread($head);//判断邮件是否被读取
+        $mail->delete_mail($mid);//删除邮件
+        $mail->get_date($mid);//获取邮件时间
 ```
