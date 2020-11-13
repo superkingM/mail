@@ -97,6 +97,8 @@ class MailBox
     {
         $body = imap_fetchbody($this->marubox, $mid, 1);
         $encoding = imap_fetchstructure($this->marubox, $mid);
+
+
         if (!isset($encoding->parts)) {
             if ($encoding->encoding == 3) {
                 return base64_decode($body);
@@ -104,7 +106,7 @@ class MailBox
         } else {
             $code = 3;
             $param = strtolower($encoding->parameters[0]->value);
-
+            $type = 0;
 
             foreach ($encoding->parts as $part) {
                 if ($part->encoding == 0) {
@@ -117,15 +119,24 @@ class MailBox
                 if ($part->encoding == 4) {
                     $code = 4;
                 }
+                if ($part->type == 5) {
+                    $type = 5;
+                }
             }
-
+            if ($type == 5) {
+                $body = base64_decode($body);
+                if (mb_detect_encoding($body, 'GBK')) {
+                    $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
+                }
+                return $body;
+            }
             if ($code == 3) {
 
                 if (!strpos($param, 'part') && !strpos($param, 'nextpart')) {
                     $body = imap_fetchbody($this->marubox, $mid, 2);
                     return base64_decode($body);
                 }
-                if (strpos($param, 'nextpart')||strpos($param,'part')) {
+                if (strpos($param, 'nextpart') || strpos($param, 'part')) {
                     $body = imap_fetchbody($this->marubox, $mid, 2);
                     $body = base64_decode($body);
                     if (mb_detect_encoding($body, 'GBK')) {
