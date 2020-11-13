@@ -1,5 +1,7 @@
 # mail
 一个用于读取邮箱邮件的拓展包
+# required
+- imap拓展
 # Useage
 > composer require superkingm/mail
 
