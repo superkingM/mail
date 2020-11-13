@@ -122,8 +122,31 @@ class MailBox
                 if ($part->type == 5) {
                     $type = 5;
                 }
+                if ($part->type ==3){
+                    $type = 3;
+                }
             }
+
             if ($type == 5) {
+                $start = strripos($body, 'base64');
+                $end = strripos($body, '------');
+                $body = substr($body, $start, $end);
+                $end = strpos($body, '------');
+                $body = substr($body, 6, $end - 6);
+                $body = base64_decode($body);
+                if (mb_detect_encoding($body, 'GBK')) {
+                    $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
+                }
+                return $body;
+            }
+
+            if ($type == 3){
+                $start = strpos($body,'text/html');
+                $body = substr($body,$start);
+                $start = strpos($body,'base64');
+                $body = substr($body,$start+6);
+                $end = strpos($body, '------');
+                $body = substr($body,0,$end);
                 $body = base64_decode($body);
                 if (mb_detect_encoding($body, 'GBK')) {
                     $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
