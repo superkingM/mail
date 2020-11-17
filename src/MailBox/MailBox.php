@@ -122,7 +122,7 @@ class MailBox
                 if ($part->type == 5) {
                     $type = 5;
                 }
-                if ($part->type ==3){
+                if ($part->type == 3) {
                     $type = 3;
                 }
             }
@@ -140,13 +140,13 @@ class MailBox
                 return $body;
             }
 
-            if ($type == 3){
-                $start = strpos($body,'text/html');
-                $body = substr($body,$start);
-                $start = strpos($body,'base64');
-                $body = substr($body,$start+6);
+            if ($type == 3) {
+                $start = strpos($body, 'text/html');
+                $body = substr($body, $start);
+                $start = strpos($body, 'base64');
+                $body = substr($body, $start + 6);
                 $end = strpos($body, '------');
-                $body = substr($body,0,$end);
+                $body = substr($body, 0, $end);
                 $body = base64_decode($body);
                 if (mb_detect_encoding($body, 'GBK')) {
                     $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
@@ -248,6 +248,28 @@ class MailBox
         $this->close_mailbox();
     }
 
+    /**
+     *获取邮件基本信息
+     */
+    public function getHeaders($mid)
+    {
+        $raw_header_info = imap_headerinfo($this->marubox, $mid);
+        $from = $raw_header_info->from[0]->mailbox . '@' . $raw_header_info->from[0]->host;
+        $subject = $this->decodeStr($raw_header_info->subject);
+        $to = $this->decodeStr($raw_header_info->toaddress);
+        $fromName = isset($raw_header_info->from[0]->personal) ? $this->decodeStr($raw_header_info->from[0]->personal) : $this->decodeStr($raw_header_info->fromaddress);
+        $toOth = isset($raw_header_info->ccaddress) ? $this->decodeStr($raw_header_info->ccaddress) : '';
+        $date = $raw_header_info->udate;
+        return [
+            'from' => $from,
+            'fromName' => $fromName,
+            'to' => $to,
+            'toOth' => $toOth,
+            'subject' => $subject,
+            'date' => $date
+        ];
+    }
+
     /**GBK解码
      * @param $string
      * @return bool|string
@@ -270,6 +292,28 @@ class MailBox
             $newString .= iconv($elements[$i]->charset, $charset, $elements[$i]->text);
         }
         return $newString;
+    }
+
+    /**
+     * =?gb2312类似字符串解码
+     * @param $str
+     * @return string
+     */
+    private function decodeStr($str)
+    {
+        $code = imap_mime_header_decode($str);
+        $code_type = ['gb2312', 'gb18030', 'gbk'];
+        $str = '';
+
+        foreach ($code as $c) {
+            if (in_array($c->charset, $code_type)) {
+                $str .= mb_convert_encoding($c->text, 'UTF-8', 'GBK');
+            } else {
+                $str .= $c->text;
+            }
+        }
+
+        return $str;
     }
 
 }
