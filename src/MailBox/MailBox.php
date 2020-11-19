@@ -299,7 +299,7 @@ class MailBox
      */
     public function __destruct()
     {
-        $this->close_mailbox();
+        $this->closeMailbox();
     }
 
 
