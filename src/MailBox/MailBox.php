@@ -10,6 +10,8 @@ class MailBox
     private $password = '';
     private $marubox = '';
     private $email = '';
+    private $ssl = false;
+    private $server_type = 'imap';
 
     /**
      * MailBox constructor.
@@ -29,12 +31,14 @@ class MailBox
             $str_connect = '{' . $mail_server . '/imap:' . $port . '}INBOX';
         } else {
             if ($port == '') $port = '110';
-            $str_connect = '{' . $mail_server . ':' . $port . '/pop3' . ($ssl ? "/ssl" : "") . '}INBOX';
+            $str_connect = '{' . $mail_server . ':' . $port . '/pop3' . ($ssl ? "/ssl/novalidate-cert" : "") . '}INBOX';
         }
         $this->server = $str_connect;
         $this->username = $username;
         $this->password = $password;
         $this->email = $email_address;
+        $this->ssl = $ssl;
+        $this->server_type = $server_type;
     }
 
     /**
@@ -53,7 +57,7 @@ class MailBox
     /**
      * 获取邮件总数
      */
-    public function get_mail_total()
+    public function getMailTotal()
     {
         if (!$this->marubox) return false;
         $tmp = imap_num_msg($this->marubox);
@@ -61,153 +65,40 @@ class MailBox
     }
 
     /**
-     * 获取邮件的头部
+     * 获取邮件的头部原始信息
      */
-    public function get_imap_header($mid)
+    public function getImapHeader($mid)
     {
         return imap_headerinfo($this->marubox, $mid);
     }
 
     /**
-     * 格式化头部信息 $headerinfo get_imap_header 的返回值
-     */
-    public function get_header_info($mail_header)
-    {
-        $sender = $mail_header->from[0];
-        $sender_replyto = $mail_header->reply_to[0];
-        if (strtolower($sender->mailbox) != 'mailer-daemon' && strtolower($sender->mailbox) != 'postmaster') {
-            $mail_details = array(
-                'from' => strtolower($sender->mailbox) . '@' . $sender->host,
-                'fromName' => $this->_decode_GBK($sender->personal),
-                'toOth' => strtolower($sender_replyto->mailbox) . '@' . $sender_replyto->host,
-                'toNameOth' => $this->_decode_GBK($sender_replyto->personal),
-                'subject' => $this->_decode_GBK($mail_header->subject),
-                'to' => strtolower($this->_decode_mime_str($mail_header->toaddress))
-            );
-        }
-        return $mail_details;
-    }
-
-    /**
-     * 获取邮件内容
-     * @param $mid
-     * @return bool|string
-     */
-    public function get_body($mid)
-    {
-        $body = imap_fetchbody($this->marubox, $mid, 1);
-        $encoding = imap_fetchstructure($this->marubox, $mid);
-
-
-        if (!isset($encoding->parts)) {
-            if ($encoding->encoding == 3) {
-                return base64_decode($body);
-            }
-        } else {
-            $code = 3;
-            $param = strtolower($encoding->parameters[0]->value);
-            $type = 0;
-
-            foreach ($encoding->parts as $part) {
-                if ($part->encoding == 0) {
-                    foreach ($part->parts as $pa) {
-                        if ($pa->encoding == 4) {
-                            $code = 4;
-                        }
-                    }
-                }
-                if ($part->encoding == 4) {
-                    $code = 4;
-                }
-                if ($part->type == 5) {
-                    $type = 5;
-                }
-                if ($part->type == 3) {
-                    $type = 3;
-                }
-            }
-
-            if ($type == 5) {
-                $start = strripos($body, 'base64');
-                $end = strripos($body, '------');
-                $body = substr($body, $start, $end);
-                $end = strpos($body, '------');
-                $body = substr($body, 6, $end - 6);
-                $body = base64_decode($body);
-                if (mb_detect_encoding($body, 'GBK')) {
-                    $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
-                }
-                return $body;
-            }
-
-            if ($type == 3) {
-                $start = strpos($body, 'text/html');
-                $body = substr($body, $start);
-                $start = strpos($body, 'base64');
-                $body = substr($body, $start + 6);
-                $end = strpos($body, '------');
-                $body = substr($body, 0, $end);
-                $body = base64_decode($body);
-                if (mb_detect_encoding($body, 'GBK')) {
-                    $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
-                }
-                return $body;
-            }
-            if ($code == 3) {
-
-                if (!strpos($param, 'part') && !strpos($param, 'nextpart')) {
-                    $body = imap_fetchbody($this->marubox, $mid, 2);
-                    return base64_decode($body);
-                }
-                if (strpos($param, 'nextpart') || strpos($param, 'part')) {
-                    $body = imap_fetchbody($this->marubox, $mid, 2);
-                    $body = base64_decode($body);
-                    if (mb_detect_encoding($body, 'GBK')) {
-                        $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
-                    }
-                    return $body;
-                }
-                $body = base64_decode($body);
-                if (mb_detect_encoding($body, 'GBK')) {
-                    $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
-                }
-                return $body;
-            }
-            if ($code == 4) {
-                if (!strpos($param, 'part') && !strpos($param, 'nextpart')) {
-                    $body = imap_fetchbody($this->marubox, $mid, 2);
-                    return imap_qprint($body);
-                }
-                return imap_qprint($body);
-            }
-
-        }
-
-
-        return $body;
-
-    }
-
-    /**
      * 标记邮件成已读
+     * @param $mid
+     * @return bool
      */
-    public function mark_mail_read($mid)
+    public function markMailRead($mid)
     {
         return imap_setflag_full($this->marubox, $mid, '\\Seen');
     }
 
+
     /**
      * 标记邮件成未读
+     * @param $mid
+     * @return bool
      */
-    public function mark_mail_un_read($mid)
+    public function markMailUnRead($mid)
     {
         return imap_clearflag_full($this->marubox, $mid, '\\Seen');
     }
 
     /**
-     * 判断是否阅读了邮件 $headerinfo get_imap_header 的返回值
+     * 判断是否阅读了邮件 $headerinfo getImapHeader 的返回值
+     * @param $headerinfo
+     * @return bool
      */
-    public function is_unread($headerinfo)
+    public function isUnread($headerinfo)
     {
         if (($headerinfo->Unseen == 'U') || ($headerinfo->Recent == 'N')) return true;
         return false;
@@ -216,7 +107,7 @@ class MailBox
     /**
      * 删除邮件
      */
-    public function delete_mail($mid)
+    public function deleteMail($mid)
     {
         if (!$this->marubox) return false;
         return imap_delete($this->marubox, $mid, 0);
@@ -226,30 +117,154 @@ class MailBox
      * 获取邮件时间
      */
 
-    public function get_date($mid)
+    public function getDate($mid)
     {
-        return strtotime($this->get_imap_header($mid)->MailDate);
+        return strtotime($this->getImapHeader($mid)->MailDate);
     }
 
-    /**
-     * 关闭 IMAP 流
+
+    /**获取邮件内容
+     * @param $mid 邮件mid
+     * @return array|bool|false|string|string[]|null
      */
-    public function close_mailbox()
+    public function getBody($mid)
     {
-        if (!$this->marubox) return false;
-        imap_close($this->marubox, CL_EXPUNGE);
+        $body = imap_fetchbody($this->marubox, $mid, 1);
+        $encoding = imap_fetchstructure($this->marubox, $mid);
+        $code = 3;
+        $utf = 'utf-8';
+        $split = null;
+        if ($encoding->subtype == "ALTERNATIVE") {
+            $body = imap_fetchbody($this->marubox, $mid, 2);
+            if (isset($encoding->parts)) {
+                foreach ($encoding->parts as $part) {
+                    if ($part->subtype == 'HTML') {
+                        $code = $part->encoding;
+                        if (strtolower($part->parameters[0]->attribute) == 'charset') {
+                            $utf = $part->parameters[0]->value;
+                        }
+                    }
+                }
+            }
+
+            if ($code == 4) {
+                $body = imap_qprint($body);
+            }
+
+            if ($code == 3) {
+                $body = base64_decode($body);
+            }
+
+            if (strtolower($utf) != 'utf-8') {
+                $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
+            }
+        }
+
+        if ($encoding->subtype == "MIXED" || $encoding->subtype == "RELATED") {
+            if (isset($encoding->parts)) {
+                foreach ($encoding->parts as $part) {
+                    if ($part->subtype == 'ALTERNATIVE' || $part->subtype == 'RELATED') {
+                        if (isset($part->parameters[0]->attribute)) {
+                            $split = $part->parameters[0]->value;
+                        }
+                        foreach ($part->parts as $par) {
+                            if ($par->subtype == 'HTML') {
+                                $code = $par->encoding;
+                                if (strtolower($par->parameters[0]->attribute) == 'charset') {
+                                    $utf = $par->parameters[0]->value;
+                                }
+                            }
+
+                            if ($par->subtype == 'ALTERNATIVE'||$par->subtype =='RELATED') {
+
+                                if (isset($par->parameters[0]->attribute)) {
+                                    $split = $par->parameters[0]->value;
+                                }
+                                foreach ($par->parts as $pa) {
+                                    if ($pa->subtype == 'HTML') {
+                                        $code = $pa->encoding;
+                                        if (strtolower($pa->parameters[0]->attribute) == 'charset') {
+                                            $utf = $pa->parameters[0]->value;
+                                        }
+                                    }
+                                }
+
+                            }
+                        }
+
+
+                    }
+
+                    if ($part->subtype == 'HTML') {
+                        $code = $part->encoding;
+                        if (strtolower($part->parameters[0]->attribute) == 'charset') {
+                            $utf = $part->parameters[0]->value;
+                        }
+                    }
+                }
+            }
+            if ($split) {
+
+                $body = explode($split, $body);
+                foreach ($body as $k => $bo) {
+                    if (strpos($bo, 'text/html')) {
+                        $body = $body[$k];
+                    }
+                }
+
+
+            }
+
+            if ($code == 4) {
+                if (strpos($body, 'quoted-printable')) {
+                    $body = explode('quoted-printable', $body)[1];
+                }
+                $body = imap_qprint($body);
+                if (strtolower($utf) != 'utf-8') {
+                    $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
+                }
+            }
+
+            if ($code == 3) {
+                if (strpos($body, 'base64')) {
+                    $body = explode('base64', $body)[1];
+                }
+                $body = base64_decode($body);
+                if (strtolower($utf) != 'utf-8') {
+                    $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
+                }
+            }
+        }
+
+        if ($encoding->subtype == "HTML") {
+            $code = $encoding->encoding;
+            if (strtolower($encoding->parameters[0]->attribute) == 'charset') {
+                $utf = $encoding->parameters[0]->value;
+            }
+            if ($code == 3) {
+                if (strpos($body, 'base64')) {
+                    $body = explode('base64', $body)[1];
+                }
+                $body = base64_decode($body);
+                if (strtolower($utf) != 'utf-8') {
+                    $body = mb_convert_encoding($body, 'UTF-8', 'GBK');
+                }
+            }
+
+            if ($code == 5) {
+
+            }
+        }
+
+
+        return $body;
+
     }
 
     /**
-     * 对象销毁前关闭邮箱
-     */
-    public function __destruct()
-    {
-        $this->close_mailbox();
-    }
-
-    /**
-     *获取邮件基本信息
+     * 获取邮件基本信息
+     * @param $mid
+     * @return array
      */
     public function getHeaders($mid)
     {
@@ -270,39 +285,28 @@ class MailBox
         ];
     }
 
-    /**GBK解码
-     * @param $string
-     * @return bool|string
+    /**
+     * 关闭 IMAP 流
      */
-    private function _decode_GBK($string)
+    public function closeMailbox()
     {
-        $newString = '';
-        $string = str_replace('=?GBK?B?', '', $string);
-        $newString = base64_decode($string);
-        return $newString;
-
-    }
-
-    private function _decode_mime_str($string, $charset = "UTF-8")
-    {
-        $newString = '';
-        $elements = imap_mime_header_decode($string);
-        for ($i = 0; $i < count($elements); $i++) {
-            if ($elements[$i]->charset == 'default') $elements[$i]->charset = 'iso-8859-1';
-            $newString .= iconv($elements[$i]->charset, $charset, $elements[$i]->text);
-        }
-        return $newString;
+        if (!$this->marubox) return false;
+        imap_close($this->marubox, CL_EXPUNGE);
     }
 
     /**
-     * =?gb2312类似字符串解码
-     * @param $str
-     * @return string
+     * 对象销毁前关闭邮箱
      */
+    public function __destruct()
+    {
+        $this->close_mailbox();
+    }
+
+
     private function decodeStr($str)
     {
         $code = imap_mime_header_decode($str);
-        $code_type = ['gb2312', 'gb18030', 'gbk'];
+        $code_type = ['gb2312', 'gb18030', 'gbk', 'GBK', 'GB2312', 'GB18030'];
         $str = '';
 
         foreach ($code as $c) {
